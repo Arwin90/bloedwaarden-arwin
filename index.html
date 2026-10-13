@@ -1,0 +1,428 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Bloedwaarden Chemokuren</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: smalle kop, drie tabbladen (overzicht, per waarde, invoer); labrapport-achtige tabel met vaste eerste kolom. */
+:root{
+  --bg:#FFFFFF; --surface:#FFFFFF; --ink:#14282F; --muted:#586E74; --line:#D6E1E2;
+  --accent:#0B7285; --accent-soft:#E2F2F4; --band:rgba(47,125,79,.13); --bandline:rgba(47,125,79,.55);
+  --warn:#9A5B00; --warn-bg:#FDF1DC; --crit:#B42318; --crit-bg:#FCE9E7; --good:#2F7D4F;
+  --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:1180px;margin-inline:auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+h1{font-size:1.6rem;line-height:1.15;margin:0;font-weight:600;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;font-size:.9rem}
+.facts{display:flex;gap:20px;flex-wrap:wrap}
+.fact{display:flex;flex-direction:column}
+.fact b{font-family:var(--font-data);font-weight:500;font-size:1.05rem}
+.fact span{color:var(--muted);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase}
+.bar{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tab{font:inherit;font-weight:500;color:var(--muted);background:none;border:0;border-radius:7px;padding:8px 16px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);color:#fff}
+.btn{font:inherit;font-weight:500;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.danger{color:var(--crit)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:.88rem}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+thead th{position:sticky;top:0;background:var(--surface);font-family:var(--font-data);font-weight:500;font-size:.78rem;color:var(--muted);z-index:2}
+th.name,td.name{text-align:left;position:sticky;left:0;background:var(--surface);z-index:1;min-width:150px}
+thead th.name{z-index:3}
+td.name button{font:inherit;color:var(--ink);background:none;border:0;padding:0;cursor:pointer;text-align:left;font-weight:500}
+td.name button:hover{color:var(--accent);text-decoration:underline}
+td.name small{display:block;color:var(--muted);font-size:.72rem}
+td.ref{color:var(--muted);font-family:var(--font-data);font-size:.76rem}
+td.val{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+td.val.out{color:var(--crit);background:var(--crit-bg)}
+td.val sup{font-size:.62rem;margin-left:2px;font-weight:600}
+td.empty{color:var(--line)}
+tr.grp td{background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:.74rem;letter-spacing:.07em;text-transform:uppercase;text-align:left;position:static}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:.8rem;padding:10px 14px}
+.chip-out{background:var(--crit-bg);color:var(--crit);padding:0 6px;border-radius:4px;font-family:var(--font-data)}
+.pick{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px}
+.pick label{font-weight:500}
+select,input[type=date],input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+select{min-width:240px;max-width:100%}
+.big{padding:14px}
+.chartbox{position:relative;height:340px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;padding:0 14px 14px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.stat span{display:block;color:var(--muted);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase}
+.stat b{font-family:var(--font-data);font-weight:500}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card{font:inherit;color:inherit;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.card:hover,.card[aria-pressed="true"]{border-color:var(--accent)}
+.card .t{display:flex;justify-content:space-between;gap:8px;font-weight:500;font-size:.88rem}
+.card .t i{font-style:normal;font-family:var(--font-data);font-size:.82rem}
+.card .t i.out{color:var(--crit)}
+.card small{color:var(--muted);font-size:.72rem}
+.card svg{width:100%;height:54px;display:block}
+h2{font-size:1.05rem;margin:0}
+.form{padding:16px;display:flex;flex-direction:column;gap:18px}
+.formtop{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:.78rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.fgrp h3{margin:0 0 8px;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;color:var(--accent)}
+.fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 14px}
+.fields input{width:100%;font-family:var(--font-data)}
+.fields input.bad{border-color:var(--crit);background:var(--crit-bg)}
+.fields label small{color:var(--muted);font-weight:400}
+.note{color:var(--muted);font-size:.85rem}
+.msg{padding:10px 14px;border-radius:8px;background:var(--accent-soft);color:var(--ink)}
+.msg.err{background:var(--crit-bg);color:var(--crit)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:.9rem;z-index:20}
+footer{color:var(--muted);font-size:.78rem}
+@media (max-width:560px){h1{font-size:1.35rem}.chartbox{height:280px}}
+@media (prefers-reduced-motion: no-preference){.card{transition:border-color .15s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Bloedwaarden Chemokuren</h1>
+      <p class="sub">Alle bloeduitslagen op één plek: overzien en vergelijken.</p>
+    </div>
+    <div class="facts" id="facts"></div>
+  </header>
+
+  <div class="bar">
+    <div class="tabs" role="tablist" aria-label="Weergave">
+      <button class="tab" role="tab" id="tab-overzicht" data-tab="overzicht" aria-selected="true">Overzicht</button>
+      <button class="tab" role="tab" id="tab-waarde" data-tab="waarde" aria-selected="false">Per waarde</button>
+      
+    </div>
+    <button class="btn" id="export" hidden>Exporteer als CSV</button>
+  </div>
+
+  <main id="view"></main>
+
+  <footer>Vaste kopie van 13-10-2026. De cijfers komen uit de ziekenhuisbrieven. Referentiewaarden komen uit het labverslag van 16-08-2024; waar die ontbreken is er geen grens getoond. Vragen over uitslagen gaan naar de behandelend arts.</footer>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const PARAMS = [
+ // groep, key, label, eenheid, laag, hoog
+ ["Bloedbeeld","hb","Hemoglobine","mmol/L",8.5,11.0],
+ ["Bloedbeeld","ht","Hematocriet","L/L",0.40,0.50],
+ ["Bloedbeeld","ery","Erytrocyten","10¹²/L",4.50,5.80],
+ ["Bloedbeeld","mcv","MCV","fL",80,100],
+ ["Bloedbeeld","mch","MCH","amol",1700,2100],
+ ["Bloedbeeld","rdw","RDW","%",12.3,14.3],
+ ["Bloedbeeld","trom","Trombocyten","10⁹/L",150,400],
+ ["Bloedbeeld","leuk","Leukocyten","10⁹/L",4.0,10.0],
+ ["Bloedbeeld","neut","Neutrofielen (abs.)","10⁹/L",null,null],
+ ["Elektrolyten en nier","na","Natrium","mmol/L",136,145],
+ ["Elektrolyten en nier","k","Kalium","mmol/L",3.4,4.9],
+ ["Elektrolyten en nier","ca","Calcium, totaal","mmol/L",2.18,2.55],
+ ["Elektrolyten en nier","cacorr","Calcium, gecorrigeerd","mmol/L",2.20,2.60],
+ ["Elektrolyten en nier","mg","Magnesium","mmol/L",null,null],
+ ["Elektrolyten en nier","ureum","Ureum","mmol/L",2.5,7.5],
+ ["Elektrolyten en nier","kreat","Kreatinine","µmol/L",50,110],
+ ["Elektrolyten en nier","egfr","eGFR (CKD-EPI)","mL/min/1,73 m²",60,null],
+ ["Lever en alvleesklier","alat","ALAT","U/L",null,45],
+ ["Lever en alvleesklier","asat","ASAT","U/L",null,35],
+ ["Lever en alvleesklier","ggt","Gamma-GT","U/L",null,55],
+ ["Lever en alvleesklier","af","Alkalische fosfatase","U/L",null,115],
+ ["Lever en alvleesklier","ldh","LDH","U/L",null,248],
+ ["Lever en alvleesklier","bili","Bilirubine, totaal","µmol/L",null,24],
+ ["Lever en alvleesklier","alb","Albumine","g/L",33,45],
+ ["Lever en alvleesklier","amyl","Amylase","U/L",null,107],
+ ["Ontsteking en tumormarker","crp","CRP","mg/L",null,5],
+ ["Ontsteking en tumormarker","cea","CEA","µg/L",null,null],
+ ["IJzer en vitamines","ijzer","IJzer","µmol/L",null,null],
+ ["IJzer en vitamines","transf","Transferrine","g/L",null,null],
+ ["IJzer en vitamines","tibc","TIJBC","µmol/L",null,null],
+ ["IJzer en vitamines","transsat","Transferrinesaturatie","%",null,null],
+ ["IJzer en vitamines","ferr","Ferritine","µg/L",null,null],
+ ["IJzer en vitamines","b12","Vitamine B12","pmol/L",null,null],
+ ["IJzer en vitamines","folium","Foliumzuur","nmol/L",null,null],
+ ["Overig","glu","Glucose","mmol/L",null,7.8],
+ ["Overig","tsh","TSH","mU/L",null,null],
+ ["Overig","testo","Testosteron, totaal","nmol/L",null,null],
+ ["Overig","prol","Prolactine","mU/L",null,null],
+ ["Overig","urine","Eiwit in urine","g/L",null,null]
+].map(([group,key,label,unit,lo,hi])=>({group,key,label,unit,lo,hi,dlo:lo,dhi:hi}));
+const P = Object.fromEntries(PARAMS.map(p=>[p.key,p]));
+let limits = {};
+function applyLimits(){
+  for(const p of PARAMS){ const o=limits[p.key];
+    p.lo = o && typeof o==="object" && "lo" in o ? o.lo : p.dlo;
+    p.hi = o && typeof o==="object" && "hi" in o ? o.hi : p.dhi; }
+}
+async function saveLimit(key,reset){
+  toast("Drempels aanpassen kan alleen in de versie op claude.ai"); return;
+  const parse=id=>{const r=$(id).value.trim(); if(!r) return null; const v=Number(r.replace(",",".")); return isFinite(v)?v:NaN};
+  const next={...limits};
+  if(reset) delete next[key];
+  else{ const lo=parse("#lim_lo"), hi=parse("#lim_hi");
+    if(Number.isNaN(lo)||Number.isNaN(hi)){ toast("Een drempel moet een getal zijn"); return; }
+    if(lo!=null&&hi!=null&&lo>=hi){ toast("De ondergrens moet lager zijn dan de bovengrens"); return; }
+    next[key]={lo,hi}; }
+  try{ await db.doc("instellingen/drempels").set(next); toast(reset?"Terug naar de referentiewaarde":"Drempel opgeslagen"); }
+  catch(e){ toast("Opslaan is niet gelukt ("+(e&&e.code||"fout")+")"); }
+}
+
+const $ = s=>document.querySelector(s);
+const view = $("#view");
+let db = null, rows = [], loaded = false, dbProblem = "";
+let tab = "overzicht", sel = "hb", showAll = false, chart = null;
+let formDate = new Date().toLocaleDateString("sv-SE"), formVals = {}, confirmDelete = false, formMsg = null;
+
+const ts = d => Date.parse(d+"T00:00:00Z");
+const fmtDate = d => d.split("-").reverse().join("-");
+const fmtShort = d => new Date(ts(d)).toLocaleDateString("nl-NL",{day:"numeric",month:"short",year:"2-digit",timeZone:"UTC"});
+const num = v => v.toLocaleString("nl-NL",{maximumFractionDigits:3});
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const flag = (p,v)=> p.lo!=null && v<p.lo ? "L" : p.hi!=null && v>p.hi ? "H" : "";
+const refText = p => p.lo!=null&&p.hi!=null ? num(p.lo)+" – "+num(p.hi) : p.hi!=null ? "< "+num(p.hi) : p.lo!=null ? "> "+num(p.lo) : "";
+const series = key => rows.filter(r=>r.waarden&&typeof r.waarden[key]==="number").map(r=>({d:r.datum,x:ts(r.datum),y:r.waarden[key]}));
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const toast = t => { const el=$("#toast"); el.textContent=t; el.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>el.hidden=true,2600); };
+
+function renderFacts(){
+  const f = $("#facts");
+  if(!rows.length){ f.innerHTML=""; return; }
+  const last = rows[rows.length-1].datum;
+  f.innerHTML = `<div class="fact"><b>${rows.length}</b><span>metingen</span></div>
+  <div class="fact"><b>${fmtDate(rows[0].datum)}</b><span>eerste</span></div>
+  <div class="fact"><b>${fmtDate(last)}</b><span>laatste</span></div>`;
+  $("#export").hidden = false;
+}
+
+function spark(key,w,h){
+  const p=P[key], s=series(key); if(s.length<1) return "";
+  const ys=s.map(o=>o.y); let lo=Math.min(...ys,p.lo??Infinity), hi=Math.max(...ys,p.hi??-Infinity);
+  if(hi===lo){hi+=1;lo-=1}
+  const pad=(hi-lo)*.08; lo-=pad; hi+=pad;
+  const x0=s[0].x, x1=s[s.length-1].x, sx=v=> s.length===1? w/2 : 3+(v-x0)/(x1-x0)*(w-6), sy=v=>h-3-(v-lo)/(hi-lo)*(h-6);
+  const bl=p.lo!=null?p.lo:lo, bh=p.hi!=null?p.hi:hi;
+  const band = (p.lo!=null||p.hi!=null) ? `<rect x="0" y="${sy(bh)}" width="${w}" height="${Math.max(0,sy(bl)-sy(bh))}" style="fill:var(--band)"/>`:"";
+  const pts=s.map(o=>sx(o.x).toFixed(1)+","+sy(o.y).toFixed(1)).join(" ");
+  const e=s[s.length-1], last=`<circle cx="${sx(e.x)}" cy="${sy(e.y)}" r="2.6" style="fill:${flag(p,e.y)?'var(--crit)':'var(--accent)'}"/>`;
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${band}<polyline points="${pts}" style="fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke"/>${last}</svg>`;
+}
+
+function emptyState(){
+  if(dbProblem) return `<div class="panel empty">${esc(dbProblem)}</div>`;
+  if(!loaded) return `<div class="panel empty">De metingen worden geladen.</div>`;
+  return `<div class="panel empty">Er zijn nog geen metingen. Voeg de eerste toe via het tabblad Invoer.</div>`;
+}
+
+function renderOverview(){
+  if(!rows.length){ view.innerHTML=emptyState(); return; }
+  const cols = showAll ? rows : rows.slice(-8);
+  let h = `<div class="panel"><div class="pick"><h2>Totaaloverzicht</h2>
+    <span class="note">${showAll?"Alle "+rows.length+" metingen":"Laatste "+cols.length+" van "+rows.length+" metingen"}</span>
+    ${rows.length>8?`<button class="btn" id="toggleAll">${showAll?"Alleen de laatste 8":"Toon alle metingen"}</button>`:""}</div>
+    <div class="tablewrap" tabindex="0" aria-label="Tabel met bloedwaarden"><table><thead><tr>
+    <th class="name">Waarde</th><th>Referentie</th><th>Verloop</th>${cols.map(r=>`<th>${fmtDate(r.datum)}</th>`).join("")}</tr></thead><tbody>`;
+  let g="";
+  for(const p of PARAMS){
+    if(!series(p.key).length) continue;
+    if(p.group!==g){ g=p.group; h+=`<tr class="grp"><td colspan="${cols.length+3}">${g}</td></tr>`; }
+    h+=`<tr><td class="name"><button data-pick="${p.key}">${p.label}</button><small>${p.unit}</small></td>
+      <td class="ref">${refText(p)}</td><td style="padding-block:3px">${spark(p.key,84,26).replace("<svg",'<svg style="width:84px;height:26px;display:block"')}</td>`;
+    for(const r of cols){
+      const v=r.waarden&&r.waarden[p.key];
+      if(typeof v!=="number"){ h+=`<td class="val empty">·</td>`; continue; }
+      const f=flag(p,v);
+      h+=`<td class="val${f?" out":""}">${num(v)}${f?`<sup>${f}</sup>`:""}</td>`;
+    }
+    h+="</tr>";
+  }
+  h+=`</tbody></table></div>
+    <div class="legend"><span><span class="chip-out">12<sup>H</sup></span> boven de referentiewaarde</span><span><span class="chip-out">3<sup>L</sup></span> onder de referentiewaarde</span><span>· niet gemeten</span><span>Klik op een naam voor de grafiek</span></div></div>`;
+  view.innerHTML=h;
+  const t=$("#toggleAll"); if(t) t.onclick=()=>{showAll=!showAll;renderOverview()};
+  view.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{sel=b.dataset.pick;setTab("waarde")});
+}
+
+function renderWaarde(){
+  if(!rows.length){ view.innerHTML=emptyState(); return; }
+  const have = PARAMS.filter(p=>series(p.key).length);
+  if(!have.find(p=>p.key===sel)) sel=have[0].key;
+  const p=P[sel], s=series(sel), ys=s.map(o=>o.y), last=s[s.length-1], prev=s[s.length-2];
+  const out=s.filter(o=>flag(p,o.y)).length;
+  const diff = prev ? last.y-prev.y : null;
+  let opts = ""; let g="";
+  for(const q of have){ if(q.group!==g){ if(g) opts+="</optgroup>"; g=q.group; opts+=`<optgroup label="${g}">`; } opts+=`<option value="${q.key}"${q.key===sel?" selected":""}>${q.label} (${series(q.key).length})</option>`; }
+  opts+="</optgroup>";
+  view.innerHTML=`<div class="panel"><div class="pick"><label for="sel">Waarde</label><select id="sel">${opts}</select>
+      <span class="note">${p.unit}${refText(p)?" · "+(limits[sel]?"eigen drempel ":"referentie ")+refText(p):" · geen drempel ingesteld"}</span></div>
+    <div class="pick" style="border-top:1px solid var(--line)"><label for="lim_lo">Kleurdrempel</label>
+      <input type="text" inputmode="decimal" id="lim_lo" aria-label="Ondergrens" placeholder="ondergrens" value="${p.lo!=null?esc(String(p.lo).replace(".",",")):""}" style="width:120px;font-family:var(--font-data)">
+      <input type="text" inputmode="decimal" id="lim_hi" aria-label="Bovengrens" placeholder="bovengrens" value="${p.hi!=null?esc(String(p.hi).replace(".",",")):""}" style="width:120px;font-family:var(--font-data)">
+      <button class="btn primary" id="lim_save">Drempel opslaan</button>
+      ${limits[sel]?`<button class="btn" id="lim_reset">Terug naar referentie</button>`:""}
+      <span class="note">Waarden buiten deze grenzen kleuren rood in tabel en grafieken. Leeg laten betekent geen grens.</span></div>
+    <div class="big"><div class="chartbox"><canvas id="cv" role="img" aria-label="Grafiek van ${esc(p.label)} in de tijd"></canvas></div></div>
+    <div class="stats">
+      <div class="stat"><span>Laatste</span><b>${num(last.y)}</b> <small class="note">${fmtDate(last.d)}</small></div>
+      <div class="stat"><span>Verschil met vorige</span><b>${diff==null?"–":(diff>0?"+":"")+num(Math.round(diff*1000)/1000)}</b></div>
+      <div class="stat"><span>Laagste</span><b>${num(Math.min(...ys))}</b></div>
+      <div class="stat"><span>Hoogste</span><b>${num(Math.max(...ys))}</b></div>
+      <div class="stat"><span>Metingen</span><b>${s.length}</b></div>
+      ${(p.lo!=null||p.hi!=null)?`<div class="stat"><span>Buiten referentie</span><b>${out} van ${s.length}</b></div>`:""}
+    </div></div>
+    <h2 style="margin:22px 0 10px">Alle waarden naast elkaar</h2>
+    <div class="grid">${have.map(q=>{const ss=series(q.key),l=ss[ss.length-1],f=flag(q,l.y);
+      return `<button class="card" data-pick="${q.key}" aria-pressed="${q.key===sel}"><span class="t"><span>${q.label}</span><i class="${f?"out":""}">${num(l.y)}${f?" "+f:""}</i></span>${spark(q.key,200,54)}<small>${ss.length} metingen · ${q.unit}</small></button>`}).join("")}</div>`;
+  $("#sel").onchange=e=>{sel=e.target.value;renderWaarde()};
+  $("#lim_save").onclick=()=>saveLimit(sel,false);
+  const lr=$("#lim_reset"); if(lr) lr.onclick=()=>saveLimit(sel,true);
+  view.querySelectorAll("[data-pick]").forEach(b=>b.onclick=()=>{sel=b.dataset.pick;renderWaarde();window.scrollTo({top:0,behavior:"smooth"})});
+  drawChart(p,s);
+}
+
+function drawChart(p,s){
+  if(chart){chart.destroy();chart=null}
+  if(typeof Chart==="undefined"){ $("#cv").parentElement.innerHTML='<p class="note">De grafiekbibliotheek kon niet laden.</p>'; return; }
+  const ink=css("--ink"), muted=css("--muted"), line=css("--line"), acc=css("--accent"), crit=css("--crit"), surf=css("--surface");
+  const ys=s.map(o=>o.y), lo=Math.min(...ys,p.lo??Infinity), hi=Math.max(...ys,p.hi??-Infinity), pad=(hi-lo||1)*.1;
+  const x0=s[0].x, x1=s[s.length-1].x, xp=Math.max((x1-x0)*.03,864e5*3);
+  const band={id:"band",beforeDatasetsDraw(c){
+    if(p.lo==null&&p.hi==null) return;
+    const {ctx,chartArea:a,scales:{y}}=c, top=y.getPixelForValue(p.hi!=null?p.hi:y.max), bot=y.getPixelForValue(p.lo!=null?p.lo:y.min);
+    ctx.save(); ctx.fillStyle=css("--band"); ctx.fillRect(a.left,top,a.right-a.left,bot-top);
+    ctx.strokeStyle=css("--bandline"); ctx.setLineDash([5,4]); ctx.lineWidth=1; ctx.beginPath();
+    if(p.hi!=null){ctx.moveTo(a.left,top);ctx.lineTo(a.right,top)} if(p.lo!=null){ctx.moveTo(a.left,bot);ctx.lineTo(a.right,bot)} ctx.stroke(); ctx.restore();}};
+  chart=new Chart($("#cv"),{type:"line",plugins:[band],
+    data:{datasets:[{label:p.label,data:s.map(o=>({x:o.x,y:o.y,d:o.d})),borderColor:acc,borderWidth:2,tension:.15,
+      pointRadius:4,pointHoverRadius:6,pointBackgroundColor:s.map(o=>flag(p,o.y)?crit:acc),pointBorderColor:surf,pointBorderWidth:1.5}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,parsing:false,
+      interaction:{mode:"nearest",intersect:false,axis:"x"},
+      scales:{
+        x:{type:"linear",min:x0-xp,max:x1+xp,grid:{color:line},border:{color:line},
+          ticks:{color:muted,maxTicksLimit:8,font:{family:"IBM Plex Mono",size:11},callback:v=>new Date(v).toLocaleDateString("nl-NL",{month:"short",year:"2-digit",timeZone:"UTC"})}},
+        y:{suggestedMin:lo-pad,suggestedMax:hi+pad,grid:{color:line},border:{color:line},
+          title:{display:true,text:p.unit,color:muted},ticks:{color:muted,font:{family:"IBM Plex Mono",size:11}}}},
+      plugins:{legend:{display:false},tooltip:{displayColors:false,callbacks:{
+        title:i=>fmtDate(i[0].raw.d),label:i=>num(i.raw.y)+" "+p.unit+(flag(p,i.raw.y)?" ("+(flag(p,i.raw.y)==="H"?"hoog":"laag")+")":"")}}}}});
+}
+
+function renderInvoer(){
+  const existing = rows.find(r=>r.datum===formDate);
+  let h=`<div class="panel form"><div class="formtop">
+    <div class="field"><label for="fd">Datum van de uitslag</label><input type="date" id="fd" value="${formDate}"></div>
+    ${existing?`<span class="msg">Voor deze datum staat al een meting. Je past die nu aan.</span>`:""}</div>
+    <p class="note">Vul alleen in wat gemeten is. Een komma of punt als decimaalteken mag. Het grijze getal is de vorige uitslag.</p>`;
+  if(dbProblem) h+=`<div class="msg err">${esc(dbProblem)}</div>`;
+  if(formMsg) h+=`<div class="msg${formMsg.err?" err":""}">${esc(formMsg.t)}</div>`;
+  let g="";
+  for(const p of PARAMS){
+    if(p.group!==g){ if(g) h+="</div></div>"; g=p.group; h+=`<div class="fgrp"><h3>${g}</h3><div class="fields">`; }
+    const ls=series(p.key), l=ls[ls.length-1];
+    h+=`<div class="field"><label for="f_${p.key}">${p.label} <small>${p.unit}</small></label>
+      <input type="text" inputmode="decimal" autocomplete="off" id="f_${p.key}" data-k="${p.key}" value="${formVals[p.key]!=null?esc(formVals[p.key]):""}" placeholder="${l?num(l.y):""}"></div>`;
+  }
+  h+=`</div></div><div class="formtop"><button class="btn primary" id="save">${existing?"Wijzigingen opslaan":"Meting opslaan"}</button>
+    <button class="btn" id="clear">Velden leegmaken</button>
+    ${existing?(confirmDelete?`<button class="btn danger" id="del2">Ja, verwijder deze meting</button><button class="btn" id="delno">Annuleren</button>`:`<button class="btn danger" id="del">Meting verwijderen</button>`):""}</div></div>`;
+  view.innerHTML=h;
+  $("#fd").onchange=e=>{formDate=e.target.value;confirmDelete=false;formMsg=null;loadForm();renderInvoer()};
+  view.querySelectorAll("[data-k]").forEach(i=>i.oninput=()=>{formVals[i.dataset.k]=i.value;i.classList.remove("bad")});
+  $("#save").onclick=save;
+  $("#clear").onclick=()=>{formVals={};formMsg=null;renderInvoer()};
+  const d=$("#del"); if(d) d.onclick=()=>{confirmDelete=true;renderInvoer()};
+  const n=$("#delno"); if(n) n.onclick=()=>{confirmDelete=false;renderInvoer()};
+  const d2=$("#del2"); if(d2) d2.onclick=remove;
+}
+
+function loadForm(){
+  const r=rows.find(x=>x.datum===formDate); formVals={};
+  if(r&&r.waarden) for(const k in r.waarden) formVals[k]=String(r.waarden[k]).replace(".",",");
+}
+
+async function save(){
+  if(!formDate){ formMsg={t:"Kies eerst de datum van de uitslag.",err:true}; return renderInvoer(); }
+  const waarden={}; let bad=[];
+  for(const p of PARAMS){
+    const raw=(formVals[p.key]||"").trim(); if(!raw) continue;
+    const v=Number(raw.replace(",",".")); if(!isFinite(v)) bad.push(p.key); else waarden[p.key]=v;
+  }
+  if(bad.length){ formMsg={t:"Deze velden bevatten geen getal: "+bad.map(k=>P[k].label).join(", ")+".",err:true}; renderInvoer(); bad.forEach(k=>$("#f_"+k).classList.add("bad")); return; }
+  if(!Object.keys(waarden).length){ formMsg={t:"Vul minstens één waarde in.",err:true}; return renderInvoer(); }
+  if(!db){ formMsg={t:"Opslaan lukt niet: de opslag is niet beschikbaar in deze weergave.",err:true}; return renderInvoer(); }
+  const btn=$("#save"); btn.disabled=true;
+  try{
+    await db.doc("metingen/"+formDate).set({datum:formDate,waarden});
+    formMsg=null; toast("Opgeslagen: "+fmtDate(formDate));
+  }catch(e){ formMsg={t:"Opslaan is niet gelukt ("+(e&&e.code||"onbekende fout")+"). Probeer het opnieuw.",err:true}; }
+  renderInvoer();
+}
+
+async function remove(){
+  try{ await db.doc("metingen/"+formDate).delete(); toast("Meting verwijderd"); formVals={}; formDate=""; }
+  catch(e){ formMsg={t:"Verwijderen is niet gelukt ("+(e&&e.code||"onbekende fout")+").",err:true}; }
+  confirmDelete=false; renderInvoer();
+}
+
+function setTab(t){
+  tab=t; formMsg=null;
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
+  if(chart&&t!=="waarde"){chart.destroy();chart=null}
+  render();
+}
+function render(){
+  if(typeof locked!=="undefined"&&locked){ return; }
+  renderFacts();
+  if(tab==="overzicht") renderOverview(); else if(tab==="waarde") renderWaarde(); else renderInvoer();
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+
+$("#export").onclick=async()=>{
+  
+  const head=["Datum",...PARAMS.map(p=>p.label+" ("+p.unit+")")];
+  const lines=[head,...rows.map(r=>[fmtDate(r.datum),...PARAMS.map(p=>{const v=r.waarden&&r.waarden[p.key];return typeof v==="number"?String(v).replace(".",","):""})])];
+  const csv="﻿"+lines.map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(";")).join("\r\n");
+  try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})); a.download="bloedwaarden.csv"; a.click(); toast("Bestand klaar"); }catch(e){ toast("Downloaden is niet gelukt"); }
+};
+
+// Thema-wissel: grafiek opnieuw tekenen met de nieuwe kleuren
+const redraw=()=>{ if(tab==="waarde"&&rows.length) renderWaarde(); };
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",redraw); }catch(e){}
+new MutationObserver(redraw).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+
+
+const ENC={"s": "nrMFIYLyj2Eg7r7l8N7JiQ==", "i": "wC86QIYAis5pED6H", "c": "NOoRqcduXj+pkf4qB0FJdRnQGd8K6uUSzBS3yKT7VFvAWhIrQekhQ0JLow1Qab71z63fIdva3Q3FR8WWubv1h3rnsUt8+gtXfuu5R2HJ4gK/6soPc7BCuSh9czRKnnb3S/P2XM9BVo6+WbQlOe/RVNV407t6a4njPtDMg8CH749sQumzHeYubz2KY0K0SoTYHUwkj2JdC3HEhZPSMdhifLFvYlh17pYDIachPvtqD3y+Nxz8h2+OFm3XbHEJJFLzC6buJCMkXlIuH66yN+z9tMxLUbMjlw0CtqmLdRlfmf5yHBcS/xKQ0p65J2HLkr0yOaomEvvOrCtscGNKq9h9VE32sVTe+neRI7TylKHgvcObdW2e1sRnfhlL8MgfDQ88eNt/Za8NEu8jVq1ZedoCOyg9vZpWJhHzbhi+WH3jrx76138Vcw/Pqw9YkV8VlJ5eNpxmyKvybbH/Qts5PbbtxCTZh4F0MracFKR/oob28F+xPLu0TRrPAjcOQQ1W/3VAcWKOanLVL3KvTgYTZ32VTOh9ILq6bKsLTLeAsDStjI2rS3VCkg7KcLxuUdIahOIPqob1cIrcVBOd9QwtDDCbZH+k53EdonbmyokMvXJYBU58F1k4YQ7GxriZ7YtFHHOjWP+vlyW+TMmogx7rx8KjcFcZ97ZkmGicBnuVTw2moRys8bcRJZ7tJ5YWo60UVbL2txsTPzdOtgKwm+F4FdycSAlNsDgAi+gFOak5LStYFIfnP7kfKHKhAF7UOUTCznKJ4WQGGaiByEo6mp2DdzzZ3Yyei08einWkaT88ENDWYaPlWB08047J7OzjE/SO4gWc8T++AYZYhL0ic6WTuqkRDkPMd6tjcx/HWMWtN5Vv31wlNfKonOuMHIIUuSh9fJrOIc6pJWNHUYAhnVWLFjwc7zeng2jvUZxA5bR6IhuFy5AssV9ot3QRLpsaGHiVgEdSartm2S1LIRHFO4uExiwThmYXISO7b7AD3Ke5KiY9ibbYHvIAalG8zWBLkfqy6ExLCpgJL0H/m8MtA52AKi8D4jO/EPMv298kUddCIZ30C9v2zWZI8XEOKDftE0S347FPv/SKMFM3uQGLJ/QzpwWcpQgLt6xRu/4xkQhMmdwhnKe+pDLPuHS6q2y5bsbpFrLTkLg25adSq3LHgWptAi8rdvpL6JRpmMgmlGg7mXQ8zgT856KtEOc5MC8Gc/V0mVhm6z8dGWUuD+pBDf4D+0uIkN4qFwiLoVIyPvFMrS76ytoQ7KRt0W7WuLWR9p8aioqwq1Lo7HXlhdJ0YVHwjRVx9DcLb4uStmGMqSsIxvBPKS3QMR76MF4gQ0d5RGwpXg0XcrSM87leJmYCscl64CG9UAv1js+BQrL8MFlp6JS9Tfn4i7u+soHqa6iiFyADaBOxBTt+MJ7K2ZIM0ERCsEDtiZknzQNYVDP9Mvyy3aVmg3zyWse8zMJq5QbdDAZSYSf0CJRq5gYHrfBJ4CzT+U1n5jL8qLlbw70H7oG4c6Y+OBtQssQlpwMb/rt5MluSdzAS9vqtbFoTDySN77bIzbpyIvabcDStN8VNEzodigWZRZMTLjczTiQL4cWgf+pjucUl+SvFfKYOJYkwrGW4e0qZQDm6rMOmOnePSn3Gip1FS8boA/o5qlcDsQuFfCc91/U8H16Uzh3s5NuRsLarM0J0wuPKdJS7ojZ2Yb/vyGXw1gx1E+CBnitZPPTMlP//cUt/HXWNuof8V38rIjEy/sDthoywoCB+Fx17spv/WWQ9ZJSKsoK0RDSEYo9AP9iwdjBPmPHNtRPJ4SePgvbVhFOUz/8BvOy7Zzm0xIG9OJ48PXrEYtoTUZDf+FxLyKitAL4Yqe9F/eb8JCLm+RpDdkfgAC9E/dSEVAvHMz5h3a7e9sVYgy3kIFVKveVo3YEr9EJSN+8F+lSGgNYe6NCtFUxrvjzZlubmvreFya9psgBYvlFiC9zkspbI+03cpySOwO++POZSbA5OxfJPRSI7cVLsyXdNZSWVjE6bwl49IAbodr0HdV8e1ES+aY5USabxlraaiEiBadeBj4pPUdkN3pmXZMc7582Gf5CDXhPcCGvarBH2fWYuSOYaU3oqGTfWNo7ZpK+4sMQ/gfwlN9tdT26OSMX7BuUMOwfUexzPr5aFK4QsVRPRqD7/Nfjdm7dKl/YEpCDDGbpwG+ANuAilW1ctxxJ5AeFw+1h5xyk598OxmOXaWevjnbU+015oxXOkKdoZGDVjpIpjO0a6c1CcK+W0kB1HSPeBL4S5qvjyCmzTzxNSATdyqLlD/A9AkufW8H7jtXYype8sQc0Ic4osGJAUmMDWtU6w9Rv0BEGg0DbfNUNQSY0k3gow1dWhrjEXGu+czOJ2q+4CdAf873Vv2cMAGtf7hIuKYNozri+/lDwVpbkZrA1MgWJJOxiCmKlzHa/78yZIYyJ+RE/n8tPugLEZ04EuLxkh18ymR2OSgtaqWUkB1cf69qGjk+yL/W3xUJQorOEM8ZIlzsD/SptYdvIV856jlVRn2bVyVelzApbXSLHdHgCq2tAERo5UH/HoxRHe8FB7fi8FMYWUTGhWIw71ZMoaTR8EnytsgfKrsbfTzebJAaFb3PwKOkaoBYuYtFw/i+zz1LzcPzrR80x1v0ifRj7ky44hnqWUceBoH7FoaTKkRdXUgw/6PTxy5GJpM5EgrZGojICv2FJKCcr+hCW4PrhQPKltkKkfXsTGmtppWu6RtGAQ8FJtuDrSGPQMeapR8c3l5U5lHqzZmig3W1+3ERtxuY4dU4Oq16rHUJQTH5mJE4pC8l3jLSxYFEbKGgktNZtV381K3li4lfWTohCiii+dNDRkKC2v6hWg0wMvqBJobN6bNjvczIRGEQSE0qIAXSUcSbJhVJs3xPfWD8STrE5PD7smrTvxBbvLLMwZ/yMS9Zn4vDoEvKLoIOSx8AzNAs9jfoJ8recoHAS/6QvHhtdDgxTxCaCA7UFs3uWbPOmcGlfNmUVZ/uCk9FM/WTvXaMnlisumEoovdpG+Vi2rhS3z0HdgJUmCPZ5CP2dI6NOk2OJmRJfAZDg8CUbl8yLqZlo2V9pYSJKYkdaAHwSIQdGjBpQrv4yNJPToiKVuuSkHbSCyXbuRjyEq1NDlwYeGLWLR9sphkyPJFR/CCXCS/osKfVStraLWGAU4nhYBOaoPALcn+7seb2/v1P5l/Te8VkSeASjHNIxDBkS8cUpU3m2T5aEnq6bCstkQI5wahsdFCZFG28Bmx2uuIHSMM3zi3CMCkf7oehOk34OehpqzUMGJw+ILUkY9SKEZI8zIOUXgUWj8qr2eVoGBqJaM1L0J+uhB7trVrb6E60lZfAnTooAkSIJ1kTq59f4Llqq4yVpeNaw4LEPlXpeMxR9Nt54PE5zQ/CDr/qKLDIU5wNZLNJQZPJo4VrFKvfV578XjW80AjzkE5bZFbhngmgu2uz4Rh70WybF4aktV8SGTMpUG3TR2zCykvbi20v2OMN8i3/1jhw06opRHLCM1JAbj1+M3aWPeflz94EVgSc5qMAGvnGa38NocEWT1L6bLQu/RYwNkKunNS5nPbQW7a6IccmDI+rTi1mfty15AbYmbtOSvYqiHaGCRz3a2Tkgzi5NdQssjZBeFos9eEc911A6LyrvrhAOc3ZkHgg2t3ARDEBx7VgCevy46tW6YUYU7jCvmO+OkEiyZrAnkojGC/V6RiC3fxjzmOkpqf7Aecb39FTOtU+Zj196eDBO8m3SdeMvMHC/91MMnJI0hOUkYx6KWb4K+DNgLpP9Q4oeXuVbganhuDlumy5eBBYhc/sY97vmsFL+Wj8aynHA0/x7BQkXp6FeDIcllHCnOq804oPsEQlCX6ZlArlt51/MAWSXdf3IAuBLKb3nSG9Ck6Xi1jDEEtPTY7EYjikOhD7NSLfxblYfknCqBQQKRdqm4pZ/OMxrrkDPlsRl28aKBFgZQUmaYW16wlXX/G6V8SFrAN+OqwRfxOIBTy/Sw/Nd60S4n+PhaC0M1y6N85UvOBkiKrdT9ga+kqAV3zXVphD0bpAkI+gQMG258IFsAOmtx/KB23xhWJDosQ5JrChJxQfSXLsn+V7GYCh44zns79phEHHcPGLjkMM9RTswjY4mBAeYi/Q9BV3If+5Es7bzykxt3988fPA7UCWeUUfQGoV9GLNjzpDaSQrzWor+dYCzoi8v5UXXgS5hDQNdbEqzBF7R8ZIb5egxU0MzXW37IHGf40CeFrzF+2Nq4ItfEaRJ28F6L+FFcqEW1cr31wt3rW5olBKimMU1ufLRsikTXKxIkobEfsjegUqtlTqt+6ejn5ubsoHynHnchqjcFPXkWN885t/J/hn1SclGBFKwrijZ7MQs+J7EJskQOIuUSep4Ahg6jIednJVEArLo2IVmg7GtK/O1lYITm9P7HASGMvxTmpK81iU/UfUMMBU5vzIcwGiigqIAnqoh23DAhC/cYRTON/jLSRiaCZu9B674SjU1Zi1/wQjVyNGGmq+Baahgr+W7yLi9upcICyoBnkno3rJsC8F/9f2MuF9KnF2f1PZwN2J/J+hIEaFJT+GN8fo/2TGMKuumiRuAsxLIt7LlwcKR6mAYVGmRyMokWIW2I0tS4FwLeo8im5rkY50dZE35unSuDpqpZuUJvr5BOWri064gArEPbubydvc+C7fRoCVy0ruFoa3oipk4ZFGmEKj8QAS3RxbDNa3wN90ygUQiKcvplq05k1ZEHr6tpXjfFy6q8cmE2ZpNae7tsVFh/D56S4U9iqnHTIp1X/WEAkW5DmzKZC/TWxybLb9ApXLVb7+Ky6hwjAmFUThuI6ApPrStSGh3CX2zCTget3J1bhyFzvziSbi1cdMntskMULHNjxKisPcMvD8AMu/FDPShojPFBiZGj8Dd2eme2P8tzeQbiNgGPqM5+gU8wy9wuKuMTc958CzwrCCsGlzT4YGlQ6uhXgh3amFtynPLogIK3WnOmzELNtO9XwzicJPd4N9jjbDTPfKFmR9oX5ESIRq7qcU9tqa+LlB69EVLX7bC3OLdi/G9nshWxjDsbWkG5/qUFLhahOf98jtC82HbI6zZ5MAI6jfxOX2hKlFVnYaLktZX9qkesgCFjMnljQ45MkZjavw9km4KPUxBJOTTIbNXUvQ4org7p0QACtMQ2BY8jLcr+QJfB40N0mKOACEld2DfDVQilRM4kyCLkNvEicg5SakvLikYS2ETIrRKfmdLMQwl5GQKrLsUSp8RksV98cXZBCNgmJ7M6jGDlifGQqbO+u3ltc9bI0w+My06j98WJjMZKyTaRQYjEc6IqtcZ3a38sJS79NPwACrB+yidlNs8PsFKG7CL/N1A+8qshQb4F1pTMJ0vXq5S6SzDX5may6Umx36o3hRN2uqa4jxDZ64zIg4BLeJXXJc99EFeIo55Shkthj69nYnc4FPOWhYi4ztkFDoh+uTgzsAUzVTzwFisJacLPddr/O2+LP9k3VVBy+jy+k4gQybm26W9YoRmU4ig1JI+3ESasRusqMPi7x0+ux9IFtCOoXAR2aIeao9B0IeKdE2m5Ms7oMTiRgJ5NPQnTAEqUbWMnEA5p9d4lEws9eZBIEUr2X0eEdFMIUCvjU0NATCEjtp/jDe/VQtsYab4n+L8waYmlyUyethbc+pB2PauXPNFu/x7J+keTczVsD4dShkkVLEXr+cbL/CR0N456IssLmExTz9GLtFfv1JEcv+dzVS6MepHUTxpzaGvsqAho8QCfLh9MnpYEpH179xLopepBVea/1wK2mQeZYqpcbbHBWCJ56iweeqrD4P10vmY503jg3adwf25f/3Hg+cdZEMA3GJd0/XFkZ+nzY8LBV8zFZfR+L6cUxrNp9BwgywJcJCRere+LYVbBhU+QDBkfwqTlYuVKKKHjw6EGcZbxr7jHJQ9pgEScKl27U2PluKRUkkh9Jy8niRsTr07z5qaaQ7jfqpqigGtAkySh8DEVBIwTk8nwNTdXG98kZ51m42z4cIwGUno+BXy7oECfAieYMpFpP8t3HsPXVXoSn7deOSKjjYYNQjDYfAG6wO1LIm95erysFrhX1jAo02HCXVgoe2eYzIz1ss9Hxpu5mAJn1rhl5gj+77kq1hUYGSFzlGCQIE1RtV0HBJ7KI/q3TGuQD2Sw/Mt9D22aHpyOPgRNDmNTMGmaVTyCEd6hiUe7fJVdOxB/SifVO/qqorZBRdoeiAXcjmcAYUUrJKB/lZw5cQI0qyRjCxFZSPOsNeT9RyrRDPud78XFNuBDxgITI28H/cEw9Xi96x4iGQiI1kidcRW6TB88kDqYo7M8BuKUyYtlyt4igbRWCKPApknbkHp9yB39U5RoIrNTU3rOibKikUzu5xE/XXWpx2RAS7ZBEN7QL4L+7ZI/hUKqIZytiJKWnn8ViALexj8twJD/utyDyZo4yswo6FbHh6pfuVERlz+xoEHwGV43bQ8fxK9bLNAAm2qdge5kzFK6O4JNyHbD+uhbHXmx5wHaUZHzOwg8JK/kGFe8SpJ7p+zbER6kKWQe/WobxjCiP+if7T8m/yIfp89YdhDSfq9x1AY4SS9hml8PcP4Kv2lJ+tIWsewttLCOCtAUEgs09b7A1Lru0caPtLDaR3cyUn1X/y0REwFoYnX0TRK7gvG7LSEr4XfJ8ABepdnlVA8jbCWbcav4UKFv9oKrjGRFQ0qrzKlx0hZVHgIiweNa0ygkNiH/rlK7LI0RPKBuVh8wIr/wt3e+Yoh1eh5jw2Q4QKPd5t1LEeMmLibQVquqTpHhqYQe7824vFx9Bx/cfy4Ks8uyHCNHneDmZYEt8KXxhIVWC954vQK7l5bSFZz1Pof2NHdFzT7Sq5IpiE6TTOza3yNsOhfVpAnFAAwKRlphsedjczBG7/izOPeR4Rl3oEJsRQcHFAYydgzpxzHvp1RvUhYqiDiWI0CbDMm1czruspnenzONG23dxzZlZF8PCPy9kmLx6+YtwPXw+oiVQHJGroNuuKGp4PVXp1MgGfaK/QvrWT0CXjKgZDz/WfgpM8M9kfjNWFarA6hQEkbf2HX71hjTTvdXp12lj19Zz6j0QIYiXDHwH5YCjvS0FTT4c9n/Dx5Be+px6/Ldv8AaIsnS9xQeoQ7cVQInIWEAujfh+gypUOKSjmAA9PMk45m9KRPzV1dIABDYLCrhD2RibW9qmmKD70TkBFkbJMlIIYXArQrJGG/1pgAqRCLSDI/QS4cIJ8HiwNHJ/X775HjxgdIftYf8L+fP0Ig6oOqTM3jWnFSr/6oaA+xeSx8eEj0hKtxkQ7042uBm5Hlcwej8T4oVMD4BEAn67h+GQEuVbYMC3BSuBLgWQUFYzyHsMaTde60hz11i3ELbuiilZZHytyTBnVLSkdiawSOYcxg44sxYUpUTVmafuRJnmzzNsTagmpeXLA4ZXBt0ba1eg4YfeLVgXG4xqe/tsJ5u/zDZXxvDj2RuNXQIZOv/Je8cGG/J4BLUxPmU242/E87kCtJBslzqxcjYgFkke+vwxwjEAfRk9yJ/jIPK38EEn4V71Nh+7I2Bs12k0JRbMtlggibYutmrp6iQHUJFBkttpSfyZoG2K0OzvUwJzdtr9gxEUFFNSfP7ULxNgySEZmbrYreuX0bkiEz2OJQb6kyJGq0PZO9XzTVmc/t7WIbYqZCMgCYCSf7y7EvHYNtrniKm0lEWPoTw0CoPJA+TegTYjkNdJuY8Pg1tAziKIXLmGL7RH73qGXPciDndVq+fYe+kFcRP637DKMItDUlislsaHA2Ri+WdIzRZaDYkrVBnvnRQI5ll7Zsj8yDZUfoIXZX9psbtJ9IG57qarCyaGmLOn+wkK92SUaQQxoem0DENmZC4tnbBfJ0DJ5qMPvoclgYI8n467WE7kksORgRlwixWdfXyjs115Yxl2WPAg4OREDl+oNZRm0IFuJ0kP3CCOZUPc3hi9WvoyUzqu32PPIYfMrbEZQrcyCV0tjImFzcqlLg0ll4RkwpQhdMmwJySU3lbc/iylMTgsLBYbyOjEKXuuSDO4NSi45kYo2X7kp8WTgrLCtO6AuoTLyhwQpEWQsnTcU0f8NuGaIuuyB3awEY7Dtoh9XMGMgAg8A40gj24DlyU1XkIkT1yz9ER7aZaX4SuJZyHutRXCBqmPVYqw82uU0DI6XUi3NCjOKcR4zUbemsBNjqyUBh3R/FvlZhabX9x2T6A7kp8IYkoJKDBuk4NQUZ5da+yA8FjHlVoro3j9qgvVwgXtfRT0uysRpI1g41r/+RLt3LTHnLUoiLEOgYtqEq8hmKeFkNOQ2JAs+u2ZoSCsRzbJc7Zi5NcAgWz29fiEcY3OA+63DqwX597bDmsyVOPhn+9obLaGsfUqu5X2u1CodoUSRbqubhz4+HPvLDLXMudzGPMV5kc7BZRhRqRPCNknb+4Nswp5Alv+JQvpHXbvMvNdcP2pPnBh3vOQLtnr2vSZWhxP/n09kQz0WK1zpi3n+KeVwWXP1wB+XrDn1ns5SwkoaXj6S673YB3d0dlstFcgsA7FR+bu4++y/gtnibvVg0xwOtM/dUm5Pkk0Eosa3uln2Hfbxxsno7VI1nc+LFV8XmCXsOAq0fC2K5aFerULNXFVZwMqbBP6RkENTUmBZTkx97BEvn5Fd1c+SawQHXgMulas5Wq53ICDkXpBFzLlqNeiFU0NJmVw1M6eR3z3dCe48AeHfYQuCtpB3JSUoO189mIaO2TcnBZDa53cYeE8t65L+8YhyTcyux04Cuq8+b7OJfddqd0XT045cKOCOqinRAaxNlnnTyXg3b15Ct2N/Eu3RbHUa9smRRiKBuMCt0vsKABs/zB/gFFZGGKyOJotIjHZr8siavNR3OfP4FjMpeDqd/9bENfnni3llcxI954l/5l7m92FiC+h6uzwY/ShE7U61IdDZ1vrU4rIPlqvKsxcfokvSn4cqM4B/XwIkagvGyGwGb7CGhdUxJXct/jJ8A/UOj1A4UVGcCHIRllgu5yx0xNo0iiKBS8juDrYSAjKcMJe8+YiPi7Ha7l1+3EQ5gQhgWJrXCayhhSgz0dm4PgpNxFowD1Qr2esFjw7kful7KcQ9+Flo8l5D+T3fFqRjz2sATJEqNDQ8wSQhuxGgdTf0KYOzFBCy49SI3FianwQbvpQrk9kcGv7TJ9KKRMPyfFyfa2geCkBk3wxNaI7+pbp0R0AK1TUK2FkK8o9nvuAr54V8tupsAkq3cDZPvR+NRL6oq+Pyk2dikOJpbGcvj7g8B9lxMM14TqS1DpPGCbI9KyKNqnEzRHow7w94IHbLrHV66GM60Yb+/YBnJ2rcNU/9TkAAU3Lf2xh+HUQiQ0kQTFyHy+5dzBw1qtOYuitCRbNRbQAwtLzjKMc1gHoUiEN6b/Z6+5TN1Gf+sYAJ99fEZ84lzGu5kNPfRdbWsW5xa5kPMlCgqcxKKbMfmE8cXeN6QBnQUaF4UyBLIwqCZvumXhR+7NHG6L11XccfGN27qEqKrpnJAjnZBrcigAjHas13m0UvkJQuMvw+oJ9hrNnQHkctzFyutcGSKkX+19reC6NHqTLTjuQ2ncb+5ORZycPPuS49ZLgYU85kOalks/ST0EDUaNpN1Hm/DLHOTjIlovMuhA2f2AkUTDPc1t9PsN3AgPwAf6/aN9cq+NSOvr497s0EeYhFr9sYMKCqje3Vv1gzuX1btiOPV65qBc9wbFek7PM3f/EgXW55Oy9Vf42NzxX241miCHn4vs40zpfdOaTgxk5jgX/TsUjgrMDNVVOjaCN15gnoU3reFqsdLfTsNzJktBIUnPEi2t7qbC5zJa3xi8XF19OjiO3QprMZ+FujhSFmx/Y4aePCaOBVnXyvGD2ayCgHwvtyT3EVQhUzWpa0AFBrNtp0y1SPEkFY6UswVGTb+l94naNxpYNAqiww7KsmJDiClRhMSj4zFjtaBBeuldhUJX7HEPVNcBhvCiKLBLt+gsgxHf5cj/W1OdhTnbqW0vhZkMCrd8WlLCVmbCmiJzyvBo3zNhgUUYUE1fVuQz5yjQ5pTZgfc3hoYf/TYMwZGAmBAckJ6/WGm55Oz5IkEa3dP7RIFnB7rthrUWdgu2flBm3JBz7Y4t8B96Rjwr82yV84mw6M/4HnGAwamdOEHjAn7YqFdlQjF7yBuYDtHV2CFGdvNgmCdWXhQWGV0SKQd1BaAll6YwBQgTz7E8RjFEhzO6W4D6CeOfemmLqY0NQpESJP5I/4VYvFXhe/b3PQ3z3eMqY5lOxMOJdq9QJBPyWRkYlSX2WmDUgSf19srcD9SK45DqS6qBQV/+PN+LdFHTwWORrrqsK5OvG8KuZ0A4aFFmlPFQiBYQISffZyIBTeAlOCGWYHMIOWreGDlta64OOhNhFjltCW7z/6Ehh/yCEwFPWsHAKXDKvnruhQngvxDz7xydJdm+2qUNKS94Fw/nl6ggub3+hxnnteJCrvvihef/E4BsHWItPr5Mj0jJKxxLVKLuqn1Q6lgrodSYJjvtCKohLGX55mm3X6SImRY72xYI44PNxfjy3NYMpm2vv44UcYrYQ462uwnnT7cCEU+HBKvhbOBS9VBQB1c54a1/6gBPT1sdeXb4tPM9ARue+GsNbVwqvEgDoORvoVbLUJ9RVfa/B9V8HQuQaUDvbD4JO5iCC+UL8f3PM124OWEtW7WzZ5EnvQLuJwm+XOECRinzsr+BijqvOCmUofwMviWp/q95eqE4p8IwZDRePqRg/dGQbnXMNHuquNcrHfj4xDbb0OwD4DM7Zu2jUaWg7JHboMh/OAuJ9E1q/N7PBeJM21kKLb/t+npG9GnGeIC6K8Waayg6GHhSfleACzOVrHAoAIXWcavFbudD/87t74oCJ+UyjoAnf0kX1QsidAdrCXUB1l7oM/z1qkMUr5MXxNU0sBcnlwsHn+QP5f/nszIHf3wyOzr5N9FWTJvNGYX1QDy5iYLK1ZXRNEWzhH+88PuxKGKek1l4uiUwvEcxu3mUH43VUNWh04XJN6TBp8FofWnbR/6lP3k3fOKsQV5NMekCV72iXFrIlV+IJGINrSE0ggY++QR/Lj7OGmPdKqGZXAD8AWEW3hNrfFJMDRxYMNiTZkIaiPVwM0ovZatb5pxaRUhghquhqwOHVtg6+Q1PXzr0ieNTw0ST+YAtt6H2Rb0wftADdzJjbuXefEcXViEy889YbuTAsKbbL+Sm9CoeCEQXXTmsT7w/po3LvRi36+fWJNLu5ruPBdIH9Yerf7r4E1PLaU8tIXabAx74u7E7NBCG69H7++vJcZiudXJx4410SN9RuCJn0WU6ISMEQ2/4PhE5ddEzqu03nOgS0GmDnxHYRdE4FjqvTo6Lx9JUpeYZAkoWwShky3Gq3Kp6vc49g1E96zhqBpz9ltszSW5FzOo20ElVgMcXNCTTSIxm3sXi1pswF4Q0hXVgFZWyyC1o9gWWDeGd9aUdIhlGpEmv54rA3lAfpEVK+p7WsLIe7j4DY6zNebGZ1V/HbsnA6vNBznS3caSZzdRny9pdoMGE3oW3aB/f/UPyFJA25ct9n+b6j5dMt+F3yPGxwghI2fVm6U8mo4d/3mizJMckNDqrujapGgDAFC/yi1ek1QxCiCIjY71lZgJhnVzq1QTlCWIXnR8IeK+74ptOOoDt6b+dtA0SpH8nfhnLSd3vEgFKcjwk2pVUS7S7pSOcLHf3IMekHwnV7gjOWQLcjoXoJlQqM8kNGJxSnq3XCXO40fZ9RGM7H5a9hk/rlDltsivJWJiySEQ5IB1mJ0AcD4/EEnLxGZVyxBHgZtd/AsFB6lnhnSh3YRNMwGqcdOiSPAMckS6QTtsTEHhegPcIBR/sgbIIdvsUr0iNQUMECvZHW9FO4BmqPYAQAkTacvVKPFXf1f9HjLWEMxseoPFbbKG28AmYEUsPDOC07gqCMrjTH3f8e50otT5H1D4sJtgOSBpfj/w+VBA4K2pFW6qhsdhaIizcCbMwlpADKh2DWEHYbC07LipbQyEV0R/MTzIKbKgUyb8ywTA8e2Gk88ciATh/DATL7mXZvqcUmb3OkuB79zTAiZzY8IhAPhrc0auQF1pMCkuuHzjJ42aSZdpjrNTeDRL3p8/Z/9VPrrM3v6jbbB1P7/Lyv6Ati8D1sQuu2dT56uRoMuue3lj5J10eF7hmymLm+O7bQFcvxgjf0SnwyOCsslW1zVhgQRgVt8AR0orBtLf0VP2ya8P7pP7vV9j9vV0Oc8TZllEEtV1muJNCefC72Cl3P3CzxzpsPy0rqLMGqxS4YvB6zZREE7WSc40u1pC503Rf9VriS631sy08YH67Zi1Do7sWe7nEu/yFGFMStPXIrpjfgPQD12mm80wEiLmS71bewAiGMMDDkymkeSBMISIjxFkIIXPggyfGxJw9V3zOBMQ2WBZjZ/vmQ5tFgak1RKGf9lFAwc3A6xlFWaZYsZQ26p4iwuHo77Q63d7xzmtMK3xCwfQAFNXY2di8SEj7PfhqfDif+RAdLKqB7+u/sUlyPqseeQ6ASQ7o/6rLe1prHbxxU6GLihPHpwqNIdP+dUw+mqizBxTH7C2DaC812HmQkvrqJMvoiDeakWcAOyrAPAkQ8CJcMejmPe1San6ZytQcrvXU26iuqRLy5yQkgJpSkcqiGaYSwIS97l/168AaMoZbjU5lMVShKRSh8h75zlneTsxWMME+uJY+dc3ds4QYoy9o27o3ZipROdSdBhiYIARbnPI02qfR6neC03Tz4g87Eld1njc8s7L64gOuJlwzAryOHzHEzBlanG3AaYdKgAoeawZc9bzZKb1mJTatCl7jpc3fI493yEGghre9uIFArL1wK7Iaetbnbeg4/O7VX9AaCf9MqOZuBasmJeqgPtS4A+XU9jVFwId1v16ieAR9l5PIbybgpxMJPPGBFetBtcZ+XBdF/QWgO0RE/aE/pJ9eaJyJ0NLmkkhCA9CPt4aSXqhdCuzaj60+qzTVG/UXvknbrCrJhPhY3ARC0R4/k4YeEx6gjRUQDiI8jA3IdbvZIb196fZutxVBS5NwsuXt/QTH+LM9OCNdMdxeOTFh/L/DkcRY0DqK7oLXu9k1x+orTaoPUe29p8I4EaFFXARm8t7TnfgKxrk/AwvvDlIwFKYUUo4xLLvebdpkk2e8ZSdnU7Oe/HKxONne9jL5j4ZizkmqTM94UnAqTQynGc5+w5QLSdkMYpmAU3rLWEMNOR5l3WZiGLRV8gnm7Z1ExKtE92AMTEC5RlvcaNQja7B5GejC7oV736reuwej8ORRNvsW9HSWFZiK5++MyUjjNrEWegmXiBwPx3iLrue+s1rh0Bu6zrCku5G+fZXWVegVaPPHwj9twfnrkUYgpBL3wOyfF5e0w/XF/Y0FcgvfpKRLKMaWM3/YyxI+Y0iVph5GwvlUOgJb9PCXhF5sSWfcOHKGyddeseF8zYZ8yLHemx54+tVIBvdJEIpQkFBUIeOWNjq6Xz9awZDlYISSBFKjn+RZtLTfolNeIh2zfDap9iihvnFvfFnINL1pwj/Vcp2RQ0DOZME=", "n": 600000};
+let locked=true;
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function ontsleutel(pw){
+  const km=await crypto.subtle.importKey("raw",new TextEncoder().encode(pw),"PBKDF2",false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey({name:"PBKDF2",salt:b64(ENC.s),iterations:ENC.n,hash:"SHA-256"},km,{name:"AES-GCM",length:256},false,["decrypt"]);
+  const buf=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(ENC.i)},key,b64(ENC.c));
+  return JSON.parse(new TextDecoder().decode(buf));
+}
+function renderLogin(msg){
+  document.querySelector(".bar").hidden=true; $("#facts").innerHTML="";
+  view.innerHTML=`<form class="panel form" id="lf" style="max-width:420px;margin-inline:auto"><h2>Inloggen</h2>
+    <p class="note">Voer het wachtwoord in om de bloedwaarden te zien.</p>
+    <div class="field"><label for="pw">Wachtwoord</label><input type="password" id="pw" autocomplete="current-password" style="width:100%"></div>
+    ${msg?`<div class="msg err">${msg}</div>`:""}
+    <button class="btn primary" type="submit" id="lb">Openen</button></form>`;
+  const f=$("#lf"); setTimeout(()=>$("#pw").focus(),0);
+  f.onsubmit=async e=>{ e.preventDefault(); const pw=$("#pw").value; if(!pw) return;
+    $("#lb").disabled=true; $("#lb").textContent="Bezig…";
+    try{ rows=await ontsleutel(pw); locked=false; loaded=true; document.querySelector(".bar").hidden=false; render(); }
+    catch(err){ renderLogin(window.crypto&&crypto.subtle?"Onjuist wachtwoord.":"Openen lukt niet: gebruik een browser met https of open het bestand lokaal."); } };
+}
+renderLogin();
+
+</script>
+
+</body></html>
